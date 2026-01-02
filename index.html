@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>公司健康小助手</title>
+    <style>
+        body { font-family: -apple-system, sans-serif; background: #f4f7f9; margin: 0; padding: 15px; }
+        .card { background: white; max-width: 450px; margin: auto; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); padding: 20px; }
+        h3 { color: #2c3e50; margin-top: 0; border-left: 5px solid #27ae60; padding-left: 10px; }
+        .section { background: #fff; border: 1px solid #eee; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
+        input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        .summary-box { background: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; }
+        .remain-num { font-size: 32px; font-weight: bold; color: #2ecc71; display: block; margin: 5px 0; }
+        .loading { color: #999; font-size: 12px; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <div class="summary-box">
+        <input type="date" id="logDate" onchange="refreshReview()" style="background: transparent; color: white; border: none; text-align: center; width: auto;">
+        <div>今日剩餘熱量</div>
+        <span id="remainDisplay" class="remain-num">--</span>
+        <div style="font-size: 14px; opacity: 0.8;">
+            目標: <span id="targetDisplay">--</span> | 已攝取: <span id="consumedDisplay">0</span>
+        </div>
+        <div id="status" class="loading"></div>
+    </div>
+
+    <div class="section">
+        <h3>新增飲食</h3>
+        <select id="mealType">
+            <option>早餐</option><option>午餐</option><option>晚餐</option><option>吃太胖</option><option>飲料</option>
+        </select>
+        <input type="text" id="foodName" placeholder="食物名稱 (如: 雞肉飯)">
+        <input type="number" id="foodCal" placeholder="卡路里 (kcal)">
+        <textarea id="foodNote" placeholder="備註 (選填)"></textarea>
+        <button onclick="saveMeal()">儲存紀錄</button>
+    </div>
+
+ <details class="section">
+        <summary>⚙️ 更新 TDEE 身體數據</summary>
+        <div style="padding-top: 10px;">
+            <select id="gender">
+                <option value="male">性別：男</option>
+                <option value="female">性別：女</option>
+            </select>
+            <input type="number" id="w" placeholder="體重 (kg)">
+            <input type="number" id="h" placeholder="身高 (cm)">
+            <input type="number" id="a" placeholder="年齡">
+            <select id="act">
+                <option value="1.2">活動量：久坐 (基本)</option>
+                <option value="1.375">活動量：輕量 (運動1-3天)</option>
+                <option value="1.55">活動量：中度 (運動3-5天)</option>
+                <option value="1.725">活動量：重度 (運動6-7天)</option>
+            </select>
+            <button style="background: #95a5a6;" onclick="calcAndSaveTDEE()">重新計算並儲存</button>
+        </div>
+    </details>
+</div>
+
+<script>
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzruu1VJLg_KjotEodpQB0X5rdswcPwIvBqB423Lfq1ZUum_hrM9GbuE7sKyE5e1Cyvhg/exec';
+    
+    // 初始化日期
+    document.getElementById('logDate').valueAsDate = new Date();
+
+    async function callGAS(data) {
+        document.getElementById('status').innerText = "處理中...";
+        try {
+            const response = await fetch(SCRIPT_URL, {
+                method: 'POST',
+                body: JSON.stringify(data)
+            });
+            document.getElementById('status').innerText = "";
+            return await response.text();
+        } catch (e) {
+            document.getElementById('status').innerText = "連線錯誤";
+            return null;
+        }
+    }
+
+    async function refreshReview() {
+        const date = document.getElementById('logDate').value;
+        
+        // 1. 抓取最新 TDEE
+        const latestTdee = await callGAS({ type: "GET_LATEST_TDEE" });
+        if (latestTdee && latestTdee !== "0") {
+            localStorage.setItem('myTDEE', latestTdee);
+        }
+        
+        const target = localStorage.getItem('myTDEE') || 0;
+        document.getElementById('targetDisplay').innerText = target;
+
+        // 2. 抓取當日攝取總和
+        const consumed = await callGAS({ type: "GET_TODAY_TOTAL", date: date });
+        
+        document.getElementById('consumedDisplay').innerText = consumed || 0;
+        document.getElementById('remainDisplay').innerText = Math.round(target - (consumed || 0));
+    }
+
+    async function saveMeal() {
+        const name = document.getElementById('foodName').value;
+        const cal = document.getElementById('foodCal').value;
+        if (!name || !cal) return alert("請輸入食物名稱與熱量");
+
+        const data = {
+            type: "SAVE_LOG",
+            date: document.getElementById('logDate').value,
+            mealType: document.getElementById('mealType').value,
+            name: name,
+            calories: cal,
+            note: document.getElementById('foodNote').value
+        };
+        
+        await callGAS(data);
+        alert("紀錄成功！");
+        document.getElementById('foodName').value = "";
+        document.getElementById('foodCal').value = "";
+        refreshReview();
+    }
+
+    async function calcAndSaveTDEE() {
+        const w = document.getElementById('w').value;
+        const h = document.getElementById('h').value;
+        const a = document.getElementById('a').value;
+        const act = document.getElementById('act').value;
+        if(!w || !h || !a) return alert("請填寫完整數據");
+
+        const bmr = 10 * w + 6.25 * h - 5 * a + 5; 
+        const tdee = Math.round(bmr * act);
+        
+        await callGAS({ type: "SAVE_TDEE", date: document.getElementById('logDate').value, tdee: tdee });
+        alert("新 TDEE 已儲存！");
+        refreshReview();
+    }
+
+    // 啟動時自動讀取
+    window.onload = refreshReview;
+</script>
+</body>
+</html>
