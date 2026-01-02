@@ -1,64 +1,82 @@
 <!DOCTYPE html>
 <html lang="zh-TW">
 <head>
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="熱量記錄器">    
+    <link rel="apple-touch-icon" href="icon.png">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="熱量記錄器">    
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>公司健康小助手</title>
+    <title>Health App - 活力管理</title>
     <style>
-        body { font-family: -apple-system, sans-serif; background: #f4f7f9; margin: 0; padding: 15px; }
+        body { font-family: -apple-system, sans-serif; background: #f4f7f9; margin: 0; padding: 15px; color: #333; }
         .card { background: white; max-width: 450px; margin: auto; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); padding: 20px; }
-        h3 { color: #2c3e50; margin-top: 0; border-left: 5px solid #27ae60; padding-left: 10px; }
-        .section { background: #fff; border: 1px solid #eee; padding: 15px; border-radius: 10px; margin-bottom: 20px; }
+        h3 { color: #2c3e50; margin: 0; border-left: 5px solid #27ae60; padding-left: 10px; font-size: 18px; }
+        .section { background: #fff; border: 1px solid #eee; padding: 15px; border-radius: 12px; margin-bottom: 20px; }
         input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
         button { width: 100%; padding: 12px; background: #27ae60; color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 16px; }
+        
+        /* 看板樣式 */
         .summary-box { background: #2c3e50; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 20px; }
         .remain-num { font-size: 32px; font-weight: bold; color: #2ecc71; display: block; margin: 5px 0; }
-        .loading { color: #999; font-size: 12px; }
+        
+        /* 圖表樣式 */
+        .chart-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .chart-container { margin-top: 10px; max-height: 250px; overflow-y: auto; padding-right: 5px; border-top: 1px solid #fafafa; }
+        .bar-row { display: flex; align-items: center; margin-bottom: 8px; font-size: 12px; }
+        .bar-label { width: 45px; color: #666; font-weight: bold; }
+        .bar-bg { flex-grow: 1; height: 10px; background: #eee; border-radius: 5px; overflow: hidden; position: relative; display: flex; }
+        .bar-fill { height: 100%; transition: width 0.5s; }
+        .cumulative-box { text-align: center; padding: 12px; background: #f8f9fa; border-radius: 10px; margin-top: 10px; font-weight: bold; border: 1px dashed #ddd; }
+        .status-text { text-align: center; font-size: 12px; color: #aaa; margin-top: 5px; }
     </style>
 </head>
 <body>
 
 <div class="card">
     <div class="summary-box">
-        <input type="date" id="logDate" onchange="refreshReview()" style="background: transparent; color: white; border: none; text-align: center; width: auto;">
-        <div>今日剩餘熱量</div>
+        <input type="date" id="logDate" onchange="refreshReview()" style="background: rgba(255,255,255,0.1); color: white; border: 1px solid rgba(255,255,255,0.3); border-radius: 5px; text-align: center; padding: 5px;">
+        <div style="margin-top: 15px; opacity: 0.9;">今日剩餘熱量</div>
         <span id="remainDisplay" class="remain-num">--</span>
         <div style="font-size: 14px; opacity: 0.8;">
-            目標: <span id="targetDisplay">--</span> | 已攝取: <span id="consumedDisplay">0</span>
+            今日目標: <span id="targetDisplay">--</span> kcal (TDEE-300)
         </div>
-        <div id="status" class="loading"></div>
+        <div id="status" class="status-text" style="color:rgba(255,255,255,0.5)"></div>
     </div>
 
     <div class="section">
-        <h3>新增飲食</h3>
+        <div class="chart-header">
+            <h3>📊 報表回顧</h3>
+            <input type="month" id="filterMonth" onchange="updateMonthChartFromUI()" style="width: auto; margin: 0; padding: 5px; font-size: 14px;">
+        </div>
+        <div id="chartStatus" class="status-text">載入圖表中...</div>
+        <div id="monthChart" class="chart-container"></div>
+        <div id="cumulativeTotal" class="cumulative-box">本月累計：-- kcal</div>
+    </div>
+
+    <div class="section">
+        <h3>🍽️ 新增飲食</h3>
         <select id="mealType">
             <option>早餐</option><option>午餐</option><option>晚餐</option><option>吃太胖</option><option>飲料</option>
         </select>
-        <input type="text" id="foodName" placeholder="食物名稱 (如: 雞肉飯)">
+        <input type="text" id="foodName" placeholder="食物名稱">
         <input type="number" id="foodCal" placeholder="卡路里 (kcal)">
         <textarea id="foodNote" placeholder="備註 (選填)"></textarea>
         <button onclick="saveMeal()">儲存紀錄</button>
     </div>
 
- <details class="section">
-        <summary>⚙️ 更新 TDEE 身體數據</summary>
+    <details class="section">
+        <summary style="cursor: pointer; color: #888; font-weight: bold;">⚙️ 更新 TDEE 身體數據</summary>
         <div style="padding-top: 10px;">
-            <select id="gender">
-                <option value="male">性別：男</option>
-                <option value="female">性別：女</option>
-            </select>
+            <select id="gender"><option value="male">性別：男</option><option value="female">性別：女</option></select>
             <input type="number" id="w" placeholder="體重 (kg)">
             <input type="number" id="h" placeholder="身高 (cm)">
             <input type="number" id="a" placeholder="年齡">
             <select id="act">
-                <option value="1.2">活動量：久坐 (基本)</option>
-                <option value="1.375">活動量：輕量 (運動1-3天)</option>
-                <option value="1.55">活動量：中度 (運動3-5天)</option>
-                <option value="1.725">活動量：重度 (運動6-7天)</option>
+                <option value="1.2">活動量：久坐</option>
+                <option value="1.375">活動量：輕量</option>
+                <option value="1.55">活動量：中度</option>
+                <option value="1.725">活動量：重度</option>
             </select>
             <button style="background: #95a5a6;" onclick="calcAndSaveTDEE()">重新計算並儲存</button>
         </div>
@@ -66,84 +84,126 @@
 </div>
 
 <script>
-    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzruu1VJLg_KjotEodpQB0X5rdswcPwIvBqB423Lfq1ZUum_hrM9GbuE7sKyE5e1Cyvhg/exec';
+    const SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbzruu1VJLg_KjotEodpQB0X5rdswcPwIvBqB423Lfq1ZUum_hrM9GbuE7sKyE5e1Cyvhg/exec'; // 務必填寫
     
-    // 初始化日期
-    document.getElementById('logDate').valueAsDate = new Date();
+    // 初始化設定
+    const now = new Date();
+    document.getElementById('logDate').valueAsDate = now;
+    document.getElementById('filterMonth').value = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 
     async function callGAS(data) {
-        document.getElementById('status').innerText = "處理中...";
+        document.getElementById('status').innerText = "同步中...";
         try {
-            const response = await fetch(SCRIPT_URL, {
-                method: 'POST',
-                body: JSON.stringify(data)
-            });
+            const resp = await fetch(SCRIPT_URL, { method: 'POST', body: JSON.stringify(data) });
             document.getElementById('status').innerText = "";
-            return await response.text();
+            return await resp.text();
         } catch (e) {
-            document.getElementById('status').innerText = "連線錯誤";
+            document.getElementById('status').innerText = "連線失敗";
             return null;
         }
     }
 
     async function refreshReview() {
         const date = document.getElementById('logDate').value;
+        const latestTdeeText = await callGAS({ type: "GET_LATEST_TDEE" });
+        if (latestTdeeText && latestTdeeText !== "0") localStorage.setItem('myTDEE', latestTdeeText);
         
-        // 1. 抓取最新 TDEE
-        const latestTdee = await callGAS({ type: "GET_LATEST_TDEE" });
-        if (latestTdee && latestTdee !== "0") {
-            localStorage.setItem('myTDEE', latestTdee);
+        const tdee = parseFloat(localStorage.getItem('myTDEE')) || 2000;
+        const targetPerDay = tdee - 300;
+        
+        document.getElementById('targetDisplay').innerText = targetPerDay;
+        const consumed = parseFloat(await callGAS({ type: "GET_TODAY_TOTAL", date: date })) || 0;
+        document.getElementById('remainDisplay').innerText = Math.round(targetPerDay - consumed);
+
+        updateMonthChart(targetPerDay);
+    }
+
+    // 提供給 UI 月份選擇器使用的函式
+    function updateMonthChartFromUI() {
+        const tdee = parseFloat(localStorage.getItem('myTDEE')) || 2000;
+        updateMonthChart(tdee - 300);
+    }
+
+    async function updateMonthChart(targetPerDay) {
+        const filterVal = document.getElementById('filterMonth').value;
+        if (!filterVal) return;
+        const [year, month] = filterVal.split('-');
+
+        document.getElementById('chartStatus').innerText = "正在撈取數據...";
+        const dataJson = await callGAS({ type: "GET_MONTH_DATA", year: parseInt(year), month: parseInt(month) });
+        if (!dataJson) return;
+
+        const logs = JSON.parse(dataJson);
+        const chartDiv = document.getElementById('monthChart');
+        const cumulativeDiv = document.getElementById('cumulativeTotal');
+        chartDiv.innerHTML = "";
+
+        let cumulative = 0;
+        const lastDay = new Date(year, month, 0).getDate();
+        const curDate = new Date();
+        const displayUntil = (parseInt(year) == curDate.getFullYear() && parseInt(month) == (curDate.getMonth() + 1)) ? curDate.getDate() : lastDay;
+
+        for (let i = 1; i <= displayUntil; i++) {
+            const dateStr = `${year}-${month.padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+            const dayConsumed = logs[dateStr] || 0;
+            const diff = dayConsumed - targetPerDay;
+            cumulative += diff;
+
+            const row = document.createElement('div');
+            row.className = 'bar-row';
+            const isDeficit = diff <= 0;
+            const barWidth = Math.min(Math.abs(diff) / 10, 100);
+            
+            row.innerHTML = `
+                <div class="bar-label">${i}日</div>
+                <div class="bar-bg">
+                    <div class="bar-fill" style="width: ${barWidth}%; background: ${isDeficit ? '#2ecc71' : '#e74c3c'}; margin-left: ${isDeficit ? '0' : 'auto'};"></div>
+                </div>
+                <div style="width: 45px; text-align: right; font-weight: bold; color: ${isDeficit ? '#27ae60' : '#c0392b'}">${Math.round(diff)}</div>
+            `;
+            chartDiv.appendChild(row);
         }
         
-        const target = localStorage.getItem('myTDEE') || 0;
-        document.getElementById('targetDisplay').innerText = target;
-
-        // 2. 抓取當日攝取總和
-        const consumed = await callGAS({ type: "GET_TODAY_TOTAL", date: date });
-        
-        document.getElementById('consumedDisplay').innerText = consumed || 0;
-        document.getElementById('remainDisplay').innerText = Math.round(target - (consumed || 0));
+        document.getElementById('chartStatus').innerText = "";
+        cumulativeDiv.innerText = `${month}月 熱量盈餘/赤字：${Math.round(cumulative)} kcal`;
+        cumulativeDiv.style.color = cumulative <= 0 ? "#27ae60" : "#c0392b";
     }
 
     async function saveMeal() {
         const name = document.getElementById('foodName').value;
         const cal = document.getElementById('foodCal').value;
-        if (!name || !cal) return alert("請輸入食物名稱與熱量");
+        if (!name || !cal) return alert("請輸入內容");
 
-        const data = {
+        await callGAS({
             type: "SAVE_LOG",
             date: document.getElementById('logDate').value,
             mealType: document.getElementById('mealType').value,
             name: name,
             calories: cal,
             note: document.getElementById('foodNote').value
-        };
+        });
         
-        await callGAS(data);
-        alert("紀錄成功！");
         document.getElementById('foodName').value = "";
         document.getElementById('foodCal').value = "";
         refreshReview();
     }
 
     async function calcAndSaveTDEE() {
+        const g = document.getElementById('gender').value;
         const w = document.getElementById('w').value;
         const h = document.getElementById('h').value;
         const a = document.getElementById('a').value;
         const act = document.getElementById('act').value;
-        if(!w || !h || !a) return alert("請填寫完整數據");
 
-        const bmr = 10 * w + 6.25 * h - 5 * a + 5; 
+        let bmr = (g === 'male') ? (10 * w + 6.25 * h - 5 * a + 5) : (10 * w + 6.25 * h - 5 * a - 161);
         const tdee = Math.round(bmr * act);
         
         await callGAS({ type: "SAVE_TDEE", date: document.getElementById('logDate').value, tdee: tdee });
-        alert("新 TDEE 已儲存！");
+        alert("設定已同步");
         refreshReview();
     }
 
-    // 啟動時自動讀取
     window.onload = refreshReview;
 </script>
 </body>
-
 </html>
