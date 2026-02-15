@@ -189,14 +189,26 @@
     }
 
     async function calcAndSaveTDEE() {
-        const g = document.getElementById('gender').value;
-        const w = document.getElementById('w').value;
-        const h = document.getElementById('h').value;
-        const a = document.getElementById('a').value;
-        const act = document.getElementById('act').value;
+// 1. 取得輸入值並強制轉換為數字型別
+    const g = document.getElementById('gender').value;
+    const w = parseFloat(document.getElementById('w').value);
+    const h = parseFloat(document.getElementById('h').value);
+    const a = parseFloat(document.getElementById('a').value);
+    const act = parseFloat(document.getElementById('act').value);
 
-        let bmr = (g === 'male') ? (10 * w + 6.25 * h - 5 * a + 5) : (10 * w + 6.25 * h - 5 * a - 161);
-        const tdee = Math.round(bmr * act);
+    // 2. 防呆檢查：確保所有欄位都有填寫且為有效數字
+    if (isNaN(w) || isNaN(h) || isNaN(a)) {
+        alert("請輸入正確的身高、體重與年齡數值");
+        return;
+    }
+
+// 3. 計算 BMR (Mifflin-St Jeor 公式)
+    let bmr = (g === 'male') 
+        ? (10 * w + 6.25 * h - 5 * a + 5) 
+        : (10 * w + 6.25 * h - 5 * a - 161);
+
+    // 4. 計算 TDEE
+    const tdee = Math.round(bmr * act);
         
         await callGAS({ type: "SAVE_TDEE", date: document.getElementById('logDate').value, tdee: tdee });
         alert("設定已同步");
@@ -207,4 +219,5 @@
 </script>
 </body>
 </html>
+
 
